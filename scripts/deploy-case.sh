@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/openfda}"
-WEB_DIR="${WEB_DIR:-/var/www/openfda}"
+WEB_DIR="${WEB_DIR:-/var/www/neuromancer-page/openfda}"
 BRANCH="${BRANCH:-feature/openfda-public-explorer}"
 EXPECTED_TEXT="${EXPECTED_TEXT:-brought to you by Neuromancer}"
 LOCAL_URL="${LOCAL_URL:-http://localhost/openfda/}"

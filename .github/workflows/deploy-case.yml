@@ -1,0 +1,80 @@
+name: Deploy OpenFDA to Case
+
+on:
+  push:
+    branches: [feature/openfda-public-explorer]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-openfda-case
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH key
+        env:
+          CASE_SSH_KEY_B64: ${{ secrets.CASE_SSH_KEY_B64 }}
+        run: |
+          test -n "$CASE_SSH_KEY_B64"
+          mkdir -p ~/.ssh
+          echo "$CASE_SSH_KEY_B64" | base64 -d > ~/.ssh/case_deploy_key
+          chmod 600 ~/.ssh/case_deploy_key
+          ssh-keygen -y -f ~/.ssh/case_deploy_key > /dev/null
+
+      - name: Add Case host to known hosts
+        env:
+          CASE_HOST: ${{ secrets.CASE_HOST }}
+        run: |
+          test -n "$CASE_HOST"
+          ssh-keyscan -H "$CASE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on Case
+        env:
+          CASE_HOST: ${{ secrets.CASE_HOST }}
+          CASE_USER: ${{ secrets.CASE_USER }}
+        run: |
+          test -n "$CASE_HOST"
+          test -n "$CASE_USER"
+          ssh -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          APP_DIR=/opt/openfda
+          WEB_DIR=/var/www/neuromancer-page/openfda
+          BRANCH=feature/openfda-public-explorer
+          REPO=https://github.com/gpreston35/openfda.git
+
+          if [ ! -d "$APP_DIR/.git" ]; then
+            sudo mkdir -p "$APP_DIR"
+            sudo chown -R "$USER:$USER" "$APP_DIR"
+            git clone "$REPO" "$APP_DIR"
+          fi
+
+          cd "$APP_DIR"
+          git fetch origin "$BRANCH"
+          git checkout "$BRANCH"
+          git pull --ff-only origin "$BRANCH"
+          npm ci
+          npm run build:case
+          npm run check
+          sudo mkdir -p "$WEB_DIR"
+          sudo rsync -av --delete dist/ "$WEB_DIR"/
+          sudo systemctl reload caddy
+          curl -fsS http://localhost/openfda/ -o /tmp/openfda-case-index.html
+          grep -q '<div id="app"></div>' /tmp/openfda-case-index.html
+          asset_path="$(grep -o '/openfda/assets/[^" ]*\.js' /tmp/openfda-case-index.html | head -1)"
+          test -n "$asset_path"
+          curl -fsS "http://localhost${asset_path}" -o /tmp/openfda-case-app.js
+          grep -q 'brought to you by Neuromancer' /tmp/openfda-case-app.js
+          REMOTE
+
+      - name: Verify public URL
+        env:
+          CASE_HOST: ${{ secrets.CASE_HOST }}
+        run: |
+          curl -fsS "http://${CASE_HOST}/openfda/" -o /tmp/openfda-index.html
+          grep -q '<div id="app"></div>' /tmp/openfda-index.html
+          asset_path="$(grep -o '/openfda/assets/[^" ]*\.js' /tmp/openfda-index.html | head -1)"
+          test -n "$asset_path"
+          curl -fsS "http://${CASE_HOST}${asset_path}" -o /tmp/openfda-app.js
+          grep -q 'brought to you by Neuromancer' /tmp/openfda-app.js
