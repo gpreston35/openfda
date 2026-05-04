@@ -57,12 +57,19 @@ jobs:
           CASE_HOST: ${{ secrets.CASE_HOST }}
           CASE_USER: ${{ secrets.CASE_USER }}
         run: |
-          ssh -tt -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -se' <<'REMOTE'
+          ssh -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -se' <<'REMOTE'
           WEB_DIR=/var/www/neuromancer-page/openfda
-          sudo mkdir -p "$WEB_DIR"
-          sudo find "$WEB_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-          sudo tar -xzf /tmp/openfda-dist.tgz -C "$WEB_DIR"
-          sudo systemctl reload caddy
+          if mkdir -p "$WEB_DIR" 2>/dev/null && touch "$WEB_DIR/.write-test" 2>/dev/null; then
+            rm -f "$WEB_DIR/.write-test"
+            find "$WEB_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+            tar -xzf /tmp/openfda-dist.tgz -C "$WEB_DIR"
+            if command -v systemctl >/dev/null 2>&1; then sudo -n systemctl reload caddy || true; fi
+          else
+            sudo -n mkdir -p "$WEB_DIR"
+            sudo -n find "$WEB_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+            sudo -n tar -xzf /tmp/openfda-dist.tgz -C "$WEB_DIR"
+            sudo -n systemctl reload caddy
+          fi
           curl -fsS http://localhost/openfda/ -o /tmp/openfda-case-index.html
           grep -q '<div id="app"></div>' /tmp/openfda-case-index.html
           asset_path="$(grep -o '/openfda/assets/[^" ]*\.js' /tmp/openfda-case-index.html | head -1)"
