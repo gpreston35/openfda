@@ -58,7 +58,7 @@ jobs:
           CASE_USER: ${{ secrets.CASE_USER }}
         run: |
           ssh -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -se' <<'REMOTE'
-          WEB_DIR=/var/www/neuromancer-page/openfda
+          WEB_DIR=/var/www/openfda
           if mkdir -p "$WEB_DIR" 2>/dev/null && touch "$WEB_DIR/.write-test" 2>/dev/null; then
             rm -f "$WEB_DIR/.write-test"
             find "$WEB_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
