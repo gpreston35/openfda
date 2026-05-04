@@ -137,43 +137,52 @@ function shell() {
       </div>
     </header>
 
-    <main>
-      <section class="overview" aria-labelledby="overview-title">
-        <div class="section-heading">
-          <p class="eyebrow">Dashboard</p>
-          <h2 id="overview-title">Recent enforcement snapshots</h2>
-        </div>
-        <div class="category-grid" id="category-grid"></div>
-      </section>
+    <main class="app-layout">
+      <aside class="side-nav" aria-label="Page navigation">
+        <p class="eyebrow">Navigation</p>
+        <a href="#overview-title">Dashboard</a>
+        <a href="#explorer-title">Search records</a>
+        <a href="#disclaimer-title">Disclaimer</a>
+      </aside>
 
-      <section class="explorer" aria-labelledby="explorer-title">
-        <div class="section-heading">
-          <p class="eyebrow">Browse</p>
-          <h2 id="explorer-title">Search public records</h2>
-          <p>Search product descriptions, recalling firms, and recall reasons for one category at a time.</p>
-        </div>
-        <form class="searchbar" id="search-form">
-          <label>
-            <span>Category</span>
-            <select id="category-select">
-              ${Object.entries(categories).map(([key, category]) => `<option value="${key}">${category.label}</option>`).join('')}
-            </select>
-          </label>
-          <label class="searchbar__query">
-            <span>Keyword</span>
-            <input id="query-input" type="search" placeholder="insulin, pacemaker, salmonella…" autocomplete="off" />
-          </label>
-          <button type="submit">Search</button>
-        </form>
-        <div class="state" id="search-state">Choose a category or enter a keyword to load current public results.</div>
-        <div class="results" id="results"></div>
-      </section>
+      <div class="content-flow">
+        <section class="overview" aria-labelledby="overview-title">
+          <div class="section-heading">
+            <p class="eyebrow">Dashboard</p>
+            <h2 id="overview-title">Recent enforcement snapshots</h2>
+          </div>
+          <div class="category-grid" id="category-grid"></div>
+        </section>
 
-      <section class="disclaimer" aria-labelledby="disclaimer-title">
-        <h2 id="disclaimer-title">Public-data disclaimer</h2>
-        <p>Data is retrieved from public openFDA/FDA datasets and may be incomplete, delayed, duplicated, or missing fields. This dashboard is informational only and is not medical, legal, or regulatory advice. Always consult FDA source materials and qualified professionals for decisions that matter.</p>
-        <a href="https://open.fda.gov/" target="_blank" rel="noreferrer">Visit openFDA source documentation</a>
-      </section>
+        <section class="explorer" aria-labelledby="explorer-title">
+          <div class="section-heading">
+            <p class="eyebrow">Browse</p>
+            <h2 id="explorer-title">Search public records</h2>
+            <p>Search product descriptions, recalling firms, and recall reasons for one category at a time.</p>
+          </div>
+          <form class="searchbar" id="search-form">
+            <label>
+              <span>Category</span>
+              <select id="category-select">
+                ${Object.entries(categories).map(([key, category]) => `<option value="${key}">${category.label}</option>`).join('')}
+              </select>
+            </label>
+            <label class="searchbar__query">
+              <span>Keyword</span>
+              <input id="query-input" type="search" placeholder="insulin, pacemaker, salmonella…" autocomplete="off" />
+            </label>
+            <button type="submit">Search</button>
+          </form>
+          <div class="state" id="search-state">Choose a category or enter a keyword to load current public results.</div>
+          <div class="results" id="results"></div>
+        </section>
+
+        <section class="disclaimer" aria-labelledby="disclaimer-title">
+          <h2 id="disclaimer-title">Public-data disclaimer</h2>
+          <p>Data is retrieved from public openFDA/FDA datasets and may be incomplete, delayed, duplicated, or missing fields. This dashboard is informational only and is not medical, legal, or regulatory advice. Always consult FDA source materials and qualified professionals for decisions that matter.</p>
+          <a href="https://open.fda.gov/" target="_blank" rel="noreferrer">Visit openFDA source documentation</a>
+        </section>
+      </div>
     </main>
 
     <footer>brought to you by Neuromancer</footer>
