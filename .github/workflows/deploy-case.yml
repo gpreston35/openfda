@@ -13,6 +13,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build OpenFDA app
+        run: |
+          npm ci
+          npm run build:case
+          npm run check
+
+      - name: Package build artifact
+        run: |
+          tar -czf /tmp/openfda-dist.tgz -C dist .
+
       - name: Prepare SSH key
         env:
           CASE_SSH_KEY_B64: ${{ secrets.CASE_SSH_KEY_B64 }}
@@ -30,37 +43,25 @@ jobs:
           test -n "$CASE_HOST"
           ssh-keyscan -H "$CASE_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy on Case
+      - name: Upload artifact to Case
         env:
           CASE_HOST: ${{ secrets.CASE_HOST }}
           CASE_USER: ${{ secrets.CASE_USER }}
         run: |
           test -n "$CASE_HOST"
           test -n "$CASE_USER"
-          ssh -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          APP_DIR=/opt/openfda
+          scp -i ~/.ssh/case_deploy_key /tmp/openfda-dist.tgz "$CASE_USER@$CASE_HOST:/tmp/openfda-dist.tgz"
+
+      - name: Publish on Case
+        env:
+          CASE_HOST: ${{ secrets.CASE_HOST }}
+          CASE_USER: ${{ secrets.CASE_USER }}
+        run: |
+          ssh -tt -i ~/.ssh/case_deploy_key "$CASE_USER@$CASE_HOST" 'bash -se' <<'REMOTE'
           WEB_DIR=/var/www/neuromancer-page/openfda
-          BRANCH=feature/openfda-public-explorer
-          REPO=https://github.com/gpreston35/openfda.git
-          DEPLOY_USER="$(id -un)"
-          DEPLOY_GROUP="$(id -gn)"
-
-          if [ ! -d "$APP_DIR/.git" ]; then
-            sudo mkdir -p "$APP_DIR"
-            sudo chown -R "$DEPLOY_USER:$DEPLOY_GROUP" "$APP_DIR"
-            git clone "$REPO" "$APP_DIR"
-          fi
-
-          cd "$APP_DIR"
-          git fetch origin "$BRANCH"
-          git checkout "$BRANCH"
-          git pull --ff-only origin "$BRANCH"
-          npm ci
-          npm run build:case
-          npm run check
           sudo mkdir -p "$WEB_DIR"
-          sudo rsync -av --delete dist/ "$WEB_DIR"/
+          sudo find "$WEB_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          sudo tar -xzf /tmp/openfda-dist.tgz -C "$WEB_DIR"
           sudo systemctl reload caddy
           curl -fsS http://localhost/openfda/ -o /tmp/openfda-case-index.html
           grep -q '<div id="app"></div>' /tmp/openfda-case-index.html
