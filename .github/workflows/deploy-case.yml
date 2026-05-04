@@ -43,10 +43,12 @@ jobs:
           WEB_DIR=/var/www/neuromancer-page/openfda
           BRANCH=feature/openfda-public-explorer
           REPO=https://github.com/gpreston35/openfda.git
+          DEPLOY_USER="$(id -un)"
+          DEPLOY_GROUP="$(id -gn)"
 
           if [ ! -d "$APP_DIR/.git" ]; then
             sudo mkdir -p "$APP_DIR"
-            sudo chown -R "$USER:$USER" "$APP_DIR"
+            sudo chown -R "$DEPLOY_USER:$DEPLOY_GROUP" "$APP_DIR"
             git clone "$REPO" "$APP_DIR"
           fi
 
