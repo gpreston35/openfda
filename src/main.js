@@ -140,19 +140,17 @@ function shell() {
     <main class="app-layout">
       <aside class="side-nav" aria-label="Page navigation">
         <p class="eyebrow">Navigation</p>
-        <a href="#enforcement-data-title">Enforcement Data</a>
+        <a href="#overview-title">Dashboard</a>
         <a href="#explorer-title">Search records</a>
         <a href="#disclaimer-title">Disclaimer</a>
       </aside>
 
       <div class="content-flow">
-        <section class="overview" aria-labelledby="enforcement-data-title">
+        <section class="overview" aria-labelledby="overview-title">
           <div class="section-heading">
             <p class="eyebrow">Dashboard</p>
-            <h2 id="enforcement-data-title">Enforcement Data</h2>
-            <p>Recent public enforcement activity from openFDA across drugs, devices, and foods.</p>
+            <h2 id="overview-title">Recent enforcement snapshots</h2>
           </div>
-          <div class="enforcement-graph" id="enforcement-graph" aria-label="Recent enforcement records loaded by category"></div>
           <div class="category-grid" id="category-grid"></div>
         </section>
 
@@ -201,33 +199,6 @@ function shell() {
     state.activeCategory = event.target.value;
     runSearch();
   });
-}
-
-function renderEnforcementGraph() {
-  const graph = document.querySelector('#enforcement-graph');
-  const maxCount = Math.max(1, ...Object.keys(categories).map((key) => Number(state.cards[key]?.count) || 0));
-
-  graph.innerHTML = `
-    <div class="enforcement-graph__header">
-      <span>Recent records loaded</span>
-      <strong>Live openFDA sample</strong>
-    </div>
-    <div class="enforcement-graph__bars">
-      ${Object.entries(categories).map(([key, category]) => {
-        const card = state.cards[key] || { status: 'loading', count: 0 };
-        const count = Number(card.count) || 0;
-        const width = card.status === 'loading' ? 18 : Math.max(8, Math.round((count / maxCount) * 100));
-        const label = card.status === 'error' ? 'Error' : card.status === 'loading' ? 'Loading…' : `${count} records`;
-        return `
-          <div class="enforcement-graph__row" style="--accent:${category.accent}; --bar-width:${width}%">
-            <span>${category.label}</span>
-            <div class="enforcement-graph__track"><i></i></div>
-            <strong>${escapeHtml(label)}</strong>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
 }
 
 function renderCategoryGrid() {
@@ -326,7 +297,6 @@ async function loadOverview() {
     } catch (error) {
       state.cards[key] = { status: 'error', error: error.message || 'Could not load this category.' };
     }
-    renderEnforcementGraph();
     renderCategoryGrid();
   }));
 }
@@ -361,7 +331,6 @@ async function runSearch() {
 }
 
 shell();
-renderEnforcementGraph();
 renderCategoryGrid();
 loadOverview();
 runSearch();
