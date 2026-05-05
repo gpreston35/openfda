@@ -2,7 +2,9 @@ import './styles.css';
 
 const API_ROOT = 'https://api.fda.gov';
 const DEFAULT_LIMIT = 8;
+const GRAPH_LIMIT = 25;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const GRAPH_LABELS = ['Class I', 'Class II', 'Class III', 'Other / not reported'];
 
 const categories = {
   drugs: {
@@ -32,10 +34,12 @@ const categories = {
 };
 
 const state = {
+  route: 'dashboard',
   activeCategory: 'drugs',
   query: '',
   cards: {},
   graph: {},
+  graphFocus: { category: 'drugs', classification: 'all' },
   search: { status: 'idle', results: [], error: '' },
 };
 
@@ -52,7 +56,7 @@ function escapeHtml(value = '') {
 
 function firstPresent(record, keys, fallback = 'Not reported') {
   for (const key of keys) {
-    const value = record?.[key];
+    const value = key.split('.').reduce((acc, part) => acc?.[part], record);
     if (Array.isArray(value) && value.length) return value.join(', ');
     if (typeof value === 'string' && value.trim()) return value.trim();
     if (value != null && String(value).trim()) return String(value).trim();
@@ -67,26 +71,28 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Date not reported' : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function normalizeRecord(record, categoryKey) {
-  const category = categories[categoryKey];
-  return {
-    category: category.label,
-    source: category.source,
-    title: firstPresent(record, ['product_description', 'product_type', 'openfda.brand_name'], 'Unnamed product or report'),
-    summary: firstPresent(record, ['reason_for_recall', 'event_summary', 'description'], 'No summary supplied in this record.'),
-    classification: firstPresent(record, ['classification', 'seriousness'], 'Classification not reported'),
-    date: formatDate(firstPresent(record, ['report_date', 'recall_initiation_date', 'termination_date'], '')),
-    firm: firstPresent(record, ['recalling_firm', 'manufacturer_name', 'firm_name'], 'Firm not reported'),
-    status: firstPresent(record, ['status', 'voluntary_mandated'], 'Status not reported'),
-  };
-}
-
 function normalizeClassification(value = '') {
   const text = String(value).trim().toLowerCase();
   if (text.includes('class i') && !text.includes('class ii')) return 'Class I';
   if (text.includes('class ii') && !text.includes('class iii')) return 'Class II';
   if (text.includes('class iii')) return 'Class III';
   return 'Other / not reported';
+}
+
+function normalizeRecord(record, categoryKey) {
+  const category = categories[categoryKey];
+  return {
+    category: category.label,
+    categoryKey,
+    source: category.source,
+    title: firstPresent(record, ['product_description', 'product_type', 'openfda.brand_name'], 'Unnamed product or report'),
+    summary: firstPresent(record, ['reason_for_recall', 'event_summary', 'description'], 'No summary supplied in this record.'),
+    classification: firstPresent(record, ['classification', 'seriousness'], 'Classification not reported'),
+    normalizedClassification: normalizeClassification(record.classification || record.seriousness || ''),
+    date: formatDate(firstPresent(record, ['report_date', 'recall_initiation_date', 'termination_date'], '')),
+    firm: firstPresent(record, ['recalling_firm', 'manufacturer_name', 'firm_name'], 'Firm not reported'),
+    status: firstPresent(record, ['status', 'voluntary_mandated'], 'Status not reported'),
+  };
 }
 
 function buildUrl(categoryKey, { query = '', field = 'product_description', limit = DEFAULT_LIMIT } = {}) {
@@ -117,18 +123,16 @@ async function fetchJson(url) {
   }
 
   const response = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (response.status === 429) {
-    throw new Error('openFDA rate limit reached. Please wait a minute and try again.');
-  }
-  if (response.status === 404) {
-    return { results: [] };
-  }
-  if (!response.ok) {
-    throw new Error(`openFDA returned HTTP ${response.status}.`);
-  }
+  if (response.status === 429) throw new Error('openFDA rate limit reached. Please wait a minute and try again.');
+  if (response.status === 404) return { results: [] };
+  if (!response.ok) throw new Error(`openFDA returned HTTP ${response.status}.`);
   const data = await response.json();
   sessionStorage.setItem(cacheKey, JSON.stringify({ time: Date.now(), data }));
   return data;
+}
+
+function getRoute() {
+  return location.hash === '#/enforcement-data' ? 'enforcement' : 'dashboard';
 }
 
 function shell() {
@@ -147,45 +151,53 @@ function shell() {
     </header>
 
     <main class="app-layout">
-      <aside class="side-nav" aria-label="Page navigation">
-        <p class="eyebrow">Navigation</p>
-        <a href="#enforcement-data-title">Enforcement Data</a>
-        <a href="#explorer-title">Search records</a>
-        <a href="#disclaimer-title">Disclaimer</a>
+      <aside class="side-nav" aria-label="Feature navigation">
+        <p class="eyebrow">Modules</p>
+        <a data-route-link="dashboard" href="#/dashboard">Dashboard</a>
+        <a data-route-link="enforcement" href="#/enforcement-data">Enforcement Data graph</a>
       </aside>
 
       <div class="content-flow">
-        <section class="overview" aria-labelledby="enforcement-data-title">
+        <section class="page" data-page="dashboard" aria-labelledby="dashboard-title">
           <div class="section-heading">
             <p class="eyebrow">Dashboard</p>
-            <h2 id="enforcement-data-title">Enforcement Data</h2>
-            <p>Graph of recent public enforcement records loaded from openFDA across drugs, devices, and foods.</p>
+            <h2 id="dashboard-title">Recent enforcement snapshots</h2>
+            <p>General openFDA enforcement dashboard. Feature-specific modules live in the left navigation.</p>
           </div>
-          <div class="enforcement-graph" id="enforcement-graph" aria-label="Recent enforcement records by classification and category"></div>
           <div class="category-grid" id="category-grid"></div>
+
+          <section class="explorer" aria-labelledby="explorer-title">
+            <div class="section-heading">
+              <p class="eyebrow">Browse</p>
+              <h2 id="explorer-title">Search public records</h2>
+              <p>Search product descriptions, recalling firms, and recall reasons for one category at a time.</p>
+            </div>
+            <form class="searchbar" id="search-form">
+              <label>
+                <span>Category</span>
+                <select id="category-select">
+                  ${Object.entries(categories).map(([key, category]) => `<option value="${key}">${category.label}</option>`).join('')}
+                </select>
+              </label>
+              <label class="searchbar__query">
+                <span>Keyword</span>
+                <input id="query-input" type="search" placeholder="insulin, pacemaker, salmonella…" autocomplete="off" />
+              </label>
+              <button type="submit">Search</button>
+            </form>
+            <div class="state" id="search-state">Choose a category or enter a keyword to load current public results.</div>
+            <div class="results" id="results"></div>
+          </section>
         </section>
 
-        <section class="explorer" aria-labelledby="explorer-title">
+        <section class="page" data-page="enforcement" aria-labelledby="enforcement-data-title">
           <div class="section-heading">
-            <p class="eyebrow">Browse</p>
-            <h2 id="explorer-title">Search public records</h2>
-            <p>Search product descriptions, recalling firms, and recall reasons for one category at a time.</p>
+            <p class="eyebrow">Feature module</p>
+            <h2 id="enforcement-data-title">Enforcement Data graph</h2>
+            <p>Interactive graph of recent public enforcement records across drugs, devices, and foods. Select a row or classification segment to inspect the underlying records.</p>
           </div>
-          <form class="searchbar" id="search-form">
-            <label>
-              <span>Category</span>
-              <select id="category-select">
-                ${Object.entries(categories).map(([key, category]) => `<option value="${key}">${category.label}</option>`).join('')}
-              </select>
-            </label>
-            <label class="searchbar__query">
-              <span>Keyword</span>
-              <input id="query-input" type="search" placeholder="insulin, pacemaker, salmonella…" autocomplete="off" />
-            </label>
-            <button type="submit">Search</button>
-          </form>
-          <div class="state" id="search-state">Choose a category or enter a keyword to load current public results.</div>
-          <div class="results" id="results"></div>
+          <div class="enforcement-graph" id="enforcement-graph" aria-label="Interactive enforcement records graph by classification and category"></div>
+          <div class="graph-detail" id="graph-detail" aria-live="polite"></div>
         </section>
 
         <section class="disclaimer" aria-labelledby="disclaimer-title">
@@ -210,42 +222,58 @@ function shell() {
     state.activeCategory = event.target.value;
     runSearch();
   });
+
+  window.addEventListener('hashchange', renderRoute);
+}
+
+function renderRoute() {
+  state.route = getRoute();
+  document.querySelectorAll('[data-page]').forEach((page) => {
+    page.hidden = page.dataset.page !== state.route;
+  });
+  document.querySelectorAll('[data-route-link]').forEach((link) => {
+    link.classList.toggle('is-active', link.dataset.routeLink === state.route);
+  });
+  renderEnforcementGraph();
+  renderGraphDetail();
 }
 
 function renderEnforcementGraph() {
   const graph = document.querySelector('#enforcement-graph');
-  const labels = ['Class I', 'Class II', 'Class III', 'Other / not reported'];
+  if (!graph) return;
   const maxCount = Math.max(1, ...Object.values(state.graph).map((row) => row.total || 0));
 
   graph.innerHTML = `
     <div class="enforcement-graph__header">
       <div>
-        <span>Classification graph</span>
+        <span>Interactive classification graph</span>
         <strong>Recent enforcement sample</strong>
       </div>
-      <p>Each bar summarizes the latest public records loaded per category.</p>
+      <p>Click a category row or colored classification segment to update the record detail panel.</p>
     </div>
     <div class="enforcement-graph__legend">
-      ${labels.map((label) => `<span data-classification="${escapeHtml(label)}"><i></i>${escapeHtml(label)}</span>`).join('')}
+      ${GRAPH_LABELS.map((label) => `<button type="button" data-graph-category="${state.graphFocus.category}" data-graph-classification="${escapeHtml(label)}" data-classification="${escapeHtml(label)}"><i></i>${escapeHtml(label)}</button>`).join('')}
     </div>
     <div class="enforcement-graph__rows">
       ${Object.entries(categories).map(([key, category]) => {
-        const row = state.graph[key] || { status: 'loading', total: 0, counts: {} };
+        const row = state.graph[key] || { status: 'loading', total: 0, counts: {}, records: [] };
         const total = row.total || 0;
         const width = row.status === 'loading' ? 18 : Math.max(8, Math.round((total / maxCount) * 100));
         const status = row.status === 'error' ? 'Unable to load' : row.status === 'loading' ? 'Loading…' : `${total} records`;
+        const selectedRow = state.graphFocus.category === key;
         return `
-          <article class="enforcement-graph__row" style="--accent:${category.accent}; --bar-width:${width}%">
-            <div class="enforcement-graph__label">
+          <article class="enforcement-graph__row ${selectedRow ? 'is-selected' : ''}" style="--accent:${category.accent}; --bar-width:${width}%">
+            <button class="enforcement-graph__label" data-graph-category="${key}" data-graph-classification="all" type="button">
               <strong>${category.label}</strong>
               <span>${escapeHtml(status)}</span>
-            </div>
-            <div class="enforcement-graph__track">
+            </button>
+            <div class="enforcement-graph__track" role="group" aria-label="${escapeHtml(category.label)} classification segments">
               <div class="enforcement-graph__bar">
-                ${labels.map((label) => {
+                ${GRAPH_LABELS.map((label) => {
                   const value = row.counts?.[label] || 0;
                   const percent = total ? Math.round((value / total) * 100) : 0;
-                  return `<i data-classification="${escapeHtml(label)}" style="--segment:${percent}%" title="${escapeHtml(`${category.label} ${label}: ${value}`)}"></i>`;
+                  const selected = selectedRow && state.graphFocus.classification === label;
+                  return `<button type="button" class="enforcement-graph__segment ${selected ? 'is-selected' : ''}" data-graph-category="${key}" data-graph-classification="${escapeHtml(label)}" data-classification="${escapeHtml(label)}" style="--segment:${percent}%" title="${escapeHtml(`${category.label} ${label}: ${value}`)}"><span>${value}</span></button>`;
                 }).join('')}
               </div>
             </div>
@@ -254,10 +282,68 @@ function renderEnforcementGraph() {
       }).join('')}
     </div>
   `;
+
+  graph.querySelectorAll('[data-graph-category]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.graphFocus = {
+        category: button.dataset.graphCategory,
+        classification: button.dataset.graphClassification || 'all',
+      };
+      renderEnforcementGraph();
+      renderGraphDetail();
+    });
+  });
+}
+
+function renderGraphDetail() {
+  const detail = document.querySelector('#graph-detail');
+  if (!detail) return;
+  const categoryKey = state.graphFocus.category;
+  const category = categories[categoryKey];
+  const graphRow = state.graph[categoryKey] || { status: 'loading', records: [] };
+  const records = graphRow.records || [];
+  const filtered = state.graphFocus.classification === 'all'
+    ? records
+    : records.filter((item) => item.normalizedClassification === state.graphFocus.classification);
+  const label = state.graphFocus.classification === 'all' ? 'all classifications' : state.graphFocus.classification;
+
+  if (graphRow.status === 'loading') {
+    detail.innerHTML = '<div class="state state--loading">Loading graph records…</div>';
+    return;
+  }
+
+  if (graphRow.status === 'error') {
+    detail.innerHTML = `<div class="state state--error">Could not load ${escapeHtml(category.label)} graph records.</div>`;
+    return;
+  }
+
+  detail.innerHTML = `
+    <div class="graph-detail__header">
+      <div>
+        <p class="eyebrow">Selected graph data</p>
+        <h3>${escapeHtml(category.label)} — ${escapeHtml(label)}</h3>
+        <p>${filtered.length} matching records from the latest ${records.length} ${escapeHtml(category.source)} results.</p>
+      </div>
+      <a href="#/dashboard" data-search-category="${categoryKey}">Search ${escapeHtml(category.label)}</a>
+    </div>
+    <div class="results results--compact">
+      ${(filtered.length ? filtered : records.slice(0, 3)).slice(0, 6).map(renderResultCard).join('') || '<div class="state">No records returned for this graph selection.</div>'}
+    </div>
+  `;
+
+  detail.querySelector('[data-search-category]')?.addEventListener('click', () => {
+    state.activeCategory = categoryKey;
+    setTimeout(() => {
+      const select = document.querySelector('#category-select');
+      if (select) select.value = categoryKey;
+      runSearch();
+    }, 0);
+  });
 }
 
 function renderCategoryGrid() {
   const grid = document.querySelector('#category-grid');
+  if (!grid) return;
   grid.innerHTML = Object.entries(categories).map(([key, category]) => {
     const card = state.cards[key] || { status: 'loading', count: '…', latest: 'Loading recent reports…', error: '' };
     const body = card.status === 'error'
@@ -288,6 +374,7 @@ function renderCategoryGrid() {
 function renderResults() {
   const stateBox = document.querySelector('#search-state');
   const results = document.querySelector('#results');
+  if (!stateBox || !results) return;
 
   if (state.search.status === 'loading') {
     stateBox.className = 'state state--loading';
@@ -340,27 +427,28 @@ function skeletonCards() {
 
 async function loadOverview() {
   renderEnforcementGraph();
+  renderGraphDetail();
   renderCategoryGrid();
   await Promise.all(Object.keys(categories).map(async (key) => {
     try {
-      const data = await fetchJson(buildUrl(key, { limit: 25 }));
-      const results = data.results || [];
-      const counts = results.reduce((acc, record) => {
-        const classification = normalizeClassification(record.classification || record.seriousness || '');
-        acc[classification] = (acc[classification] || 0) + 1;
+      const data = await fetchJson(buildUrl(key, { limit: GRAPH_LIMIT }));
+      const records = (data.results || []).map((record) => normalizeRecord(record, key));
+      const counts = records.reduce((acc, record) => {
+        acc[record.normalizedClassification] = (acc[record.normalizedClassification] || 0) + 1;
         return acc;
       }, {});
-      state.graph[key] = { status: 'ready', total: results.length, counts };
+      state.graph[key] = { status: 'ready', total: records.length, counts, records };
       state.cards[key] = {
         status: 'ready',
-        count: String(results.length),
-        latest: results[0] ? `Latest report: ${formatDate(results[0].report_date)}` : 'No recent records returned.',
+        count: String(records.length),
+        latest: records[0] ? `Latest report: ${records[0].date}` : 'No recent records returned.',
       };
     } catch (error) {
-      state.graph[key] = { status: 'error', total: 0, counts: {} };
+      state.graph[key] = { status: 'error', total: 0, counts: {}, records: [] };
       state.cards[key] = { status: 'error', error: error.message || 'Could not load this category.' };
     }
     renderEnforcementGraph();
+    renderGraphDetail();
     renderCategoryGrid();
   }));
 }
@@ -394,8 +482,11 @@ async function runSearch() {
   renderResults();
 }
 
+if (!location.hash) location.hash = '#/dashboard';
 shell();
-renderEnforcementGraph();
+renderRoute();
 renderCategoryGrid();
+renderEnforcementGraph();
+renderGraphDetail();
 loadOverview();
 runSearch();
