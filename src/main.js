@@ -231,6 +231,16 @@ function shell() {
                 <div><dt>Credit</dt><dd>brought to you by Neuromancer</dd></div>
               </dl>
             </article>
+            <article>
+              <h3>Credits</h3>
+              <ul class="credits-list">
+                <li><strong>openFDA / FDA</strong><span>Public enforcement data and source documentation.</span></li>
+                <li><strong>GitHub</strong><span>Source repository, workflow history, and deployment automation.</span></li>
+                <li><strong>Tavily</strong><span>Research/search assistance used during requirements and source discovery.</span></li>
+                <li><strong>Vite</strong><span>Frontend build tooling for the public static app.</span></li>
+                <li><strong>Neuromancer</strong><span>Implementation, verification, and release coordination.</span></li>
+              </ul>
+            </article>
           </div>
         </section>
 

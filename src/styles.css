@@ -69,6 +69,10 @@ main { display: grid; gap: 44px; padding-bottom: 42px; }
 .about-grid p { color: #cbd5e1; line-height: 1.6; margin: 0; }
 .about-grid a { display: inline-block; margin-top: 12px; font-weight: 800; }
 .about-grid dl { margin-top: 12px; }
+.credits-list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.credits-list li { display: grid; gap: 3px; }
+.credits-list strong { color: #f8fafc; }
+.credits-list span { color: #cbd5e1; line-height: 1.45; }
 .category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .category-card { padding: 20px; position: relative; overflow: hidden; display: grid; gap: 14px; }
 .category-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; background: var(--accent); }
