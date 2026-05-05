@@ -35,6 +35,7 @@ const state = {
   activeCategory: 'drugs',
   query: '',
   cards: {},
+  graph: {},
   search: { status: 'idle', results: [], error: '' },
 };
 
@@ -78,6 +79,14 @@ function normalizeRecord(record, categoryKey) {
     firm: firstPresent(record, ['recalling_firm', 'manufacturer_name', 'firm_name'], 'Firm not reported'),
     status: firstPresent(record, ['status', 'voluntary_mandated'], 'Status not reported'),
   };
+}
+
+function normalizeClassification(value = '') {
+  const text = String(value).trim().toLowerCase();
+  if (text.includes('class i') && !text.includes('class ii')) return 'Class I';
+  if (text.includes('class ii') && !text.includes('class iii')) return 'Class II';
+  if (text.includes('class iii')) return 'Class III';
+  return 'Other / not reported';
 }
 
 function buildUrl(categoryKey, { query = '', field = 'product_description', limit = DEFAULT_LIMIT } = {}) {
@@ -140,17 +149,19 @@ function shell() {
     <main class="app-layout">
       <aside class="side-nav" aria-label="Page navigation">
         <p class="eyebrow">Navigation</p>
-        <a href="#overview-title">Dashboard</a>
+        <a href="#enforcement-data-title">Enforcement Data</a>
         <a href="#explorer-title">Search records</a>
         <a href="#disclaimer-title">Disclaimer</a>
       </aside>
 
       <div class="content-flow">
-        <section class="overview" aria-labelledby="overview-title">
+        <section class="overview" aria-labelledby="enforcement-data-title">
           <div class="section-heading">
             <p class="eyebrow">Dashboard</p>
-            <h2 id="overview-title">Recent enforcement snapshots</h2>
+            <h2 id="enforcement-data-title">Enforcement Data</h2>
+            <p>Graph of recent public enforcement records loaded from openFDA across drugs, devices, and foods.</p>
           </div>
+          <div class="enforcement-graph" id="enforcement-graph" aria-label="Recent enforcement records by classification and category"></div>
           <div class="category-grid" id="category-grid"></div>
         </section>
 
@@ -199,6 +210,50 @@ function shell() {
     state.activeCategory = event.target.value;
     runSearch();
   });
+}
+
+function renderEnforcementGraph() {
+  const graph = document.querySelector('#enforcement-graph');
+  const labels = ['Class I', 'Class II', 'Class III', 'Other / not reported'];
+  const maxCount = Math.max(1, ...Object.values(state.graph).map((row) => row.total || 0));
+
+  graph.innerHTML = `
+    <div class="enforcement-graph__header">
+      <div>
+        <span>Classification graph</span>
+        <strong>Recent enforcement sample</strong>
+      </div>
+      <p>Each bar summarizes the latest public records loaded per category.</p>
+    </div>
+    <div class="enforcement-graph__legend">
+      ${labels.map((label) => `<span data-classification="${escapeHtml(label)}"><i></i>${escapeHtml(label)}</span>`).join('')}
+    </div>
+    <div class="enforcement-graph__rows">
+      ${Object.entries(categories).map(([key, category]) => {
+        const row = state.graph[key] || { status: 'loading', total: 0, counts: {} };
+        const total = row.total || 0;
+        const width = row.status === 'loading' ? 18 : Math.max(8, Math.round((total / maxCount) * 100));
+        const status = row.status === 'error' ? 'Unable to load' : row.status === 'loading' ? 'Loading…' : `${total} records`;
+        return `
+          <article class="enforcement-graph__row" style="--accent:${category.accent}; --bar-width:${width}%">
+            <div class="enforcement-graph__label">
+              <strong>${category.label}</strong>
+              <span>${escapeHtml(status)}</span>
+            </div>
+            <div class="enforcement-graph__track">
+              <div class="enforcement-graph__bar">
+                ${labels.map((label) => {
+                  const value = row.counts?.[label] || 0;
+                  const percent = total ? Math.round((value / total) * 100) : 0;
+                  return `<i data-classification="${escapeHtml(label)}" style="--segment:${percent}%" title="${escapeHtml(`${category.label} ${label}: ${value}`)}"></i>`;
+                }).join('')}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function renderCategoryGrid() {
@@ -284,19 +339,28 @@ function skeletonCards() {
 }
 
 async function loadOverview() {
+  renderEnforcementGraph();
   renderCategoryGrid();
   await Promise.all(Object.keys(categories).map(async (key) => {
     try {
-      const data = await fetchJson(buildUrl(key, { limit: 5 }));
+      const data = await fetchJson(buildUrl(key, { limit: 25 }));
       const results = data.results || [];
+      const counts = results.reduce((acc, record) => {
+        const classification = normalizeClassification(record.classification || record.seriousness || '');
+        acc[classification] = (acc[classification] || 0) + 1;
+        return acc;
+      }, {});
+      state.graph[key] = { status: 'ready', total: results.length, counts };
       state.cards[key] = {
         status: 'ready',
         count: String(results.length),
         latest: results[0] ? `Latest report: ${formatDate(results[0].report_date)}` : 'No recent records returned.',
       };
     } catch (error) {
+      state.graph[key] = { status: 'error', total: 0, counts: {} };
       state.cards[key] = { status: 'error', error: error.message || 'Could not load this category.' };
     }
+    renderEnforcementGraph();
     renderCategoryGrid();
   }));
 }
@@ -331,6 +395,7 @@ async function runSearch() {
 }
 
 shell();
+renderEnforcementGraph();
 renderCategoryGrid();
 loadOverview();
 runSearch();
