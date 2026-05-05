@@ -9,7 +9,7 @@ const GRAPH_LABELS = ['Class I', 'Class II', 'Class III', 'Other / not reported'
 const categories = {
   drugs: {
     label: 'Drugs',
-    accent: '#8b5cf6',
+    accent: '#2563eb',
     endpoint: '/drug/enforcement.json',
     description: 'Drug recalls and enforcement reports, including classification, firm, and recall reason.',
     searchFields: ['product_description', 'recalling_firm', 'reason_for_recall'],
@@ -17,7 +17,7 @@ const categories = {
   },
   devices: {
     label: 'Devices',
-    accent: '#06b6d4',
+    accent: '#0891b2',
     endpoint: '/device/enforcement.json',
     description: 'Medical device enforcement reports and product correction/removal activity.',
     searchFields: ['product_description', 'recalling_firm', 'reason_for_recall'],
@@ -25,7 +25,7 @@ const categories = {
   },
   foods: {
     label: 'Foods',
-    accent: '#22c55e',
+    accent: '#059669',
     endpoint: '/food/enforcement.json',
     description: 'Food recalls and enforcement reports from public FDA enforcement data.',
     searchFields: ['product_description', 'recalling_firm', 'reason_for_recall'],
