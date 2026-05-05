@@ -132,7 +132,9 @@ async function fetchJson(url) {
 }
 
 function getRoute() {
-  return location.hash === '#/enforcement-data' ? 'enforcement' : 'dashboard';
+  if (location.hash === '#/enforcement-data') return 'enforcement';
+  if (location.hash === '#/about') return 'about';
+  return 'dashboard';
 }
 
 function shell() {
@@ -155,6 +157,7 @@ function shell() {
         <p class="eyebrow">Modules</p>
         <a data-route-link="dashboard" href="#/dashboard">Dashboard</a>
         <a data-route-link="enforcement" href="#/enforcement-data">Enforcement Data graph</a>
+        <a data-route-link="about" href="#/about">About</a>
       </aside>
 
       <div class="content-flow">
@@ -198,6 +201,37 @@ function shell() {
           </div>
           <div class="enforcement-graph" id="enforcement-graph" aria-label="Interactive enforcement records graph by classification and category"></div>
           <div class="graph-detail" id="graph-detail" aria-live="polite"></div>
+        </section>
+
+        <section class="page about" data-page="about" aria-labelledby="about-title">
+          <div class="section-heading">
+            <p class="eyebrow">About</p>
+            <h2 id="about-title">About this dashboard</h2>
+            <p>OpenFDA Public Explorer is a frontend-only public dashboard for FDA enforcement data across drugs, devices, and foods.</p>
+          </div>
+          <div class="about-grid">
+            <article>
+              <h3>What it does</h3>
+              <p>Loads recent public enforcement records directly from openFDA and presents summary cards, search results, and an interactive Enforcement Data graph.</p>
+            </article>
+            <article>
+              <h3>Privacy and access</h3>
+              <p>No login, no API key, no backend proxy, no cookies, no tracking, and no user-data collection.</p>
+            </article>
+            <article>
+              <h3>Data source</h3>
+              <p>Data comes from public openFDA endpoints and may be incomplete, delayed, duplicated, or missing fields.</p>
+              <a href="https://open.fda.gov/" target="_blank" rel="noreferrer">OpenFDA documentation</a>
+            </article>
+            <article>
+              <h3>Build metadata</h3>
+              <dl>
+                <div><dt>App version</dt><dd>0.1.0</dd></div>
+                <div><dt>Route</dt><dd>/openfda/</dd></div>
+                <div><dt>Credit</dt><dd>brought to you by Neuromancer</dd></div>
+              </dl>
+            </article>
+          </div>
         </section>
 
         <section class="disclaimer" aria-labelledby="disclaimer-title">

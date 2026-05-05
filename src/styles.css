@@ -17,7 +17,7 @@ button, input, select { font: inherit; }
 .hero h1 { font-size: clamp(2.5rem, 7vw, 5.8rem); line-height: .9; margin: 0; letter-spacing: -0.08em; }
 .lede { max-width: 740px; font-size: clamp(1.05rem, 2vw, 1.35rem); color: #cbd5e1; }
 .eyebrow { color: #a78bfa; font-size: .78rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; margin: 0 0 10px; }
-.hero__panel, .side-nav, .disclaimer, .category-card, .result-card, .state, .searchbar, .enforcement-graph, .graph-detail { border: 1px solid rgba(148, 163, 184, .22); background: rgba(15, 23, 42, .72); box-shadow: 0 24px 80px rgba(0, 0, 0, .3); backdrop-filter: blur(18px); border-radius: 24px; }
+.hero__panel, .side-nav, .disclaimer, .category-card, .result-card, .state, .searchbar, .enforcement-graph, .graph-detail, .about-grid article { border: 1px solid rgba(148, 163, 184, .22); background: rgba(15, 23, 42, .72); box-shadow: 0 24px 80px rgba(0, 0, 0, .3); backdrop-filter: blur(18px); border-radius: 24px; }
 .hero__panel { padding: 22px; display: grid; gap: 10px; color: #cbd5e1; }
 .hero__panel strong { color: #fff; }
 
@@ -63,6 +63,12 @@ main { display: grid; gap: 44px; padding-bottom: 42px; }
 .graph-detail__header p:not(.eyebrow) { color: #94a3b8; margin: 6px 0 0; }
 .graph-detail__header a { color: #020617; background: #e0e7ff; border-radius: 999px; font-weight: 800; padding: 11px 14px; text-decoration: none; white-space: nowrap; }
 .graph-detail__header a:hover { background: #fff; }
+.about-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.about-grid article { padding: 20px; }
+.about-grid h3 { margin: 0 0 10px; }
+.about-grid p { color: #cbd5e1; line-height: 1.6; margin: 0; }
+.about-grid a { display: inline-block; margin-top: 12px; font-weight: 800; }
+.about-grid dl { margin-top: 12px; }
 .category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .category-card { padding: 20px; position: relative; overflow: hidden; display: grid; gap: 14px; }
 .category-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; background: var(--accent); }
@@ -107,7 +113,7 @@ footer { color: #94a3b8; padding: 18px 0 36px; text-align: center; }
   .enforcement-graph__header { display: grid; }
   .enforcement-graph__row { grid-template-columns: 1fr; }
   .graph-detail__header { display: grid; }
-  .category-grid, .results { grid-template-columns: 1fr; }
+  .category-grid, .results, .about-grid { grid-template-columns: 1fr; }
   .searchbar { grid-template-columns: 1fr; }
   dl { grid-template-columns: 1fr; }
 }
