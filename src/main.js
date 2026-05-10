@@ -212,7 +212,7 @@ function summarizeDrugLabel(record, term) {
   const warnings = firstPresent(record, ['warnings', 'warnings_and_cautions', 'boxed_warning'], '');
   const interactions = firstPresent(record, ['drug_interactions'], '');
   const updated = formatDate(firstPresent(record, ['effective_time'], ''));
-  const sourceUrl = buildDrugLabelSearchUrl(term);
+  const sourceUrl = buildDrugLabelSearchUrls(term)[0];
   const parts = [purpose];
   if (warnings) parts.push(`Warnings: ${warnings}`);
   if (interactions) parts.push(`Interactions: ${interactions}`);
