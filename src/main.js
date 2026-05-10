@@ -162,29 +162,47 @@ function getRoute() {
   return 'dashboard';
 }
 
-function extractDrugTerm(text) {
-  const cleaned = String(text)
+const DRUG_CHAT_STOP_WORDS = new Set(['what', 'whats', 'is', 'are', 'the', 'a', 'an', 'about', 'tell', 'me', 'please', 'for', 'of', 'to', 'on', 'this', 'that', 'used', 'use', 'uses', 'drug', 'drugs', 'describe', 'summary', 'summarize', 'info', 'information', 'effects', 'effect', 'side', 'interactions', 'interaction', 'and', 'with', 'show', 'give', 'lookup', 'look', 'up']);
+
+function extractDrugCandidates(text) {
+  const tokens = String(text)
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, ' ')
-    .replace(/\b(what(?:'s| is)?|tell me about|describe|summary|summarize|info|information|drug|about|please|the|a|an|for|of|is|are|to|me|on|this|that)\b/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .split(' ')
+    .filter(Boolean);
 
-  if (cleaned) return cleaned;
-  return String(text).trim().replace(/[?!.,;:]+$/g, '').split(/\s+/).slice(0, 4).join(' ');
+  const filtered = tokens.filter((token) => !DRUG_CHAT_STOP_WORDS.has(token));
+  const candidates = [];
+
+  if (filtered.length) candidates.push(filtered.join(' '));
+  for (const token of filtered) candidates.push(token);
+
+  const fallback = String(text).trim().replace(/[?!.,;:]+$/g, '').split(/\s+/).filter(Boolean);
+  for (const token of fallback) {
+    if (!DRUG_CHAT_STOP_WORDS.has(token.toLowerCase())) candidates.push(token);
+  }
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
 }
 
-function buildDrugLabelSearchUrl(term) {
+function buildDrugLabelSearchUrls(term) {
   const escaped = term.replaceAll('"', '\\"');
-  const query = [
+  const exactQuery = [
     `openfda.brand_name:"${escaped}"`,
     `openfda.generic_name:"${escaped}"`,
     `openfda.substance_name:"${escaped}"`,
   ].join(' OR ');
   const params = new URLSearchParams();
-  params.set('search', query);
+  params.set('search', exactQuery);
   params.set('limit', '1');
-  return `${API_ROOT}/drug/label.json?${params.toString()}`;
+  const exactUrl = `${API_ROOT}/drug/label.json?${params.toString()}`;
+
+  const broad = new URLSearchParams();
+  broad.set('search', term);
+  broad.set('limit', '1');
+  return [exactUrl, `${API_ROOT}/drug/label.json?${broad.toString()}`];
 }
 
 function summarizeDrugLabel(record, term) {
@@ -208,18 +226,24 @@ function summarizeDrugLabel(record, term) {
 }
 
 async function fetchDrugChatReply(question) {
-  const term = extractDrugTerm(question);
-  if (!term) {
+  const candidates = extractDrugCandidates(question);
+  if (!candidates.length) {
     throw new Error('Please type a drug name to look up.');
   }
 
-  const data = await fetchJson(buildDrugLabelSearchUrl(term));
-  const record = data.results?.[0];
-  if (!record) {
-    throw new Error(`I couldn’t find a drug label for "${term}". Try an exact brand or generic name.`);
+  let lastTerm = candidates[0];
+  for (const term of candidates) {
+    lastTerm = term;
+    for (const url of buildDrugLabelSearchUrls(term)) {
+      const data = await fetchJson(url);
+      const record = data.results?.[0];
+      if (record) {
+        return summarizeDrugLabel(record, term);
+      }
+    }
   }
 
-  return summarizeDrugLabel(record, term);
+  throw new Error(`I couldn’t find a drug label for "${lastTerm}". Try an exact brand or generic name.`);
 }
 
 function renderChat() {
