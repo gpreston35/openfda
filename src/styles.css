@@ -27,8 +27,36 @@ main { display: grid; gap: 44px; padding-bottom: 42px; }
 .app-layout { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
 .content-flow { display: grid; gap: 44px; min-width: 0; }
 .side-nav { position: sticky; top: 20px; padding: 18px; display: grid; gap: 10px; }
-.side-nav a { color: #eef3ff; text-decoration: none; font-weight: 800; padding: 10px 12px; border-radius: 14px; }
-.side-nav a:hover, .side-nav a:focus, .side-nav a.is-active { background: rgba(139, 92, 246, .2); color: #fff; }
+.side-nav a, .side-nav button.nav-action { color: #eef3ff; text-decoration: none; font-weight: 800; padding: 10px 12px; border-radius: 14px; }
+.side-nav button.nav-action { text-align: left; background: transparent; border: 0; cursor: pointer; }
+.side-nav a:hover, .side-nav a:focus, .side-nav a.is-active,
+.side-nav button.nav-action:hover, .side-nav button.nav-action:focus { background: rgba(139, 92, 246, .2); color: #fff; }
+
+.chat-launcher { position: fixed; right: 18px; bottom: 18px; z-index: 40; }
+.chat-launcher button { border: 0; border-radius: 999px; background: #7c3aed; color: #fff; cursor: pointer; font-weight: 900; padding: 14px 18px; box-shadow: 0 16px 40px rgba(76, 29, 149, .34); }
+.chat-launcher button:hover, .chat-launcher button:focus { background: #6d28d9; }
+
+.chat-drawer { position: fixed; inset: 0; z-index: 50; display: none; }
+.chat-drawer.is-open { display: block; }
+.chat-drawer__backdrop { position: absolute; inset: 0; background: rgba(2, 6, 23, .52); backdrop-filter: blur(8px); }
+.chat-drawer__panel { position: absolute; right: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); max-height: min(76vh, 720px); display: grid; gap: 14px; padding: 18px; border: 1px solid rgba(139, 92, 246, .3); background: rgba(7, 8, 13, .96); box-shadow: 0 28px 80px rgba(0, 0, 0, .42); border-radius: 24px; }
+.chat-drawer__header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.chat-drawer__header h2 { margin: 0; font-size: 1.25rem; }
+.chat-drawer__header p:not(.eyebrow) { margin: 6px 0 0; color: #8ea0c5; line-height: 1.45; }
+.chat-drawer__header button { border: 0; border-radius: 999px; background: rgba(196, 181, 253, .18); color: #eef3ff; cursor: pointer; font-weight: 800; padding: 9px 12px; }
+.chat-drawer__messages { display: grid; gap: 12px; overflow: auto; padding-right: 4px; max-height: 44vh; }
+.chat-message { display: grid; gap: 6px; padding: 14px 16px; border-radius: 18px; line-height: 1.55; }
+.chat-message p { margin: 0; white-space: pre-wrap; }
+.chat-message span, .chat-message a { font-size: .82rem; color: #8ea0c5; }
+.chat-message a { font-weight: 800; text-decoration: none; }
+.chat-message--user { background: rgba(124, 58, 237, .18); margin-left: 22px; }
+.chat-message--assistant { background: rgba(15, 23, 42, .72); border: 1px solid rgba(148, 163, 184, .16); margin-right: 22px; }
+.chat-drawer__composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.chat-drawer__composer input { border: 1px solid rgba(139, 92, 246, .26); border-radius: 16px; background: rgba(2, 6, 23, .72); color: #fff; padding: 13px 14px; outline: none; }
+.chat-drawer__composer input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(139, 92, 246, .18); }
+.chat-drawer__composer button { border: 0; border-radius: 999px; background: #c4b5fd; color: #080711; cursor: pointer; font-weight: 900; padding: 12px 14px; }
+.chat-drawer__composer button:disabled, .chat-drawer__composer input:disabled { opacity: .6; cursor: wait; }
+.chat-drawer__tips { margin: 0; color: #8ea0c5; font-size: .88rem; }
 .page { display: grid; gap: 28px; }
 .page[hidden] { display: none; }
 .section-heading { margin-bottom: 18px; }
@@ -195,6 +223,8 @@ body[data-theme="day"] .state--success { border-color: rgba(22, 163, 74, .35); c
   .app-layout { grid-template-columns: 1fr; }
   .side-nav { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .side-nav .eyebrow { grid-column: 1 / -1; }
+  .chat-launcher { right: 12px; bottom: 12px; }
+  .chat-drawer__panel { right: 12px; left: 12px; bottom: 12px; width: auto; max-height: 82vh; }
   .enforcement-graph__header { display: grid; }
   .enforcement-graph__row { grid-template-columns: 1fr; }
   .graph-detail__header { display: grid; }

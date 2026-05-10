@@ -49,6 +49,16 @@ const state = {
   graph: {},
   graphFocus: { category: 'drugs', classification: 'all' },
   search: { status: 'idle', results: [], error: '' },
+  chat: {
+    open: false,
+    status: 'idle',
+    messages: [
+      {
+        role: 'assistant',
+        text: 'Ask about a drug name and I’ll pull a plain-English description from public openFDA label data.',
+      },
+    ],
+  },
 };
 
 const app = document.querySelector('#app');
@@ -152,6 +162,108 @@ function getRoute() {
   return 'dashboard';
 }
 
+function extractDrugTerm(text) {
+  const cleaned = String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\b(what(?:'s| is)?|tell me about|describe|summary|summarize|info|information|drug|about|please|the|a|an|for|of|is|are|to|me|on|this|that)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (cleaned) return cleaned;
+  return String(text).trim().replace(/[?!.,;:]+$/g, '').split(/\s+/).slice(0, 4).join(' ');
+}
+
+function buildDrugLabelSearchUrl(term) {
+  const escaped = term.replaceAll('"', '\\"');
+  const query = [
+    `openfda.brand_name:"${escaped}"`,
+    `openfda.generic_name:"${escaped}"`,
+    `openfda.substance_name:"${escaped}"`,
+  ].join(' OR ');
+  const params = new URLSearchParams();
+  params.set('search', query);
+  params.set('limit', '1');
+  return `${API_ROOT}/drug/label.json?${params.toString()}`;
+}
+
+function summarizeDrugLabel(record, term) {
+  const brand = firstPresent(record, ['openfda.brand_name'], term || 'Unknown drug');
+  const generic = firstPresent(record, ['openfda.generic_name'], '');
+  const purpose = firstPresent(record, ['indications_and_usage', 'purpose'], 'No plain-English use description was reported in the label.');
+  const warnings = firstPresent(record, ['warnings', 'warnings_and_cautions', 'boxed_warning'], '');
+  const interactions = firstPresent(record, ['drug_interactions'], '');
+  const updated = formatDate(firstPresent(record, ['effective_time'], ''));
+  const sourceUrl = buildDrugLabelSearchUrl(term);
+  const parts = [purpose];
+  if (warnings) parts.push(`Warnings: ${warnings}`);
+  if (interactions) parts.push(`Interactions: ${interactions}`);
+
+  return {
+    title: generic ? `${brand} (${generic})` : brand,
+    text: `${parts.join(' ')}\n\nSource: openFDA drug label data. Informational only, not medical advice.`,
+    meta: `Updated ${updated}`,
+    sourceUrl,
+  };
+}
+
+async function fetchDrugChatReply(question) {
+  const term = extractDrugTerm(question);
+  if (!term) {
+    throw new Error('Please type a drug name to look up.');
+  }
+
+  const data = await fetchJson(buildDrugLabelSearchUrl(term));
+  const record = data.results?.[0];
+  if (!record) {
+    throw new Error(`I couldn’t find a drug label for "${term}". Try an exact brand or generic name.`);
+  }
+
+  return summarizeDrugLabel(record, term);
+}
+
+function renderChat() {
+  const drawer = document.querySelector('#drug-chat');
+  const messages = document.querySelector('#chat-messages');
+  const input = document.querySelector('#chat-input');
+  const submit = document.querySelector('#chat-submit');
+  if (!drawer || !messages || !input || !submit) return;
+
+  drawer.classList.toggle('is-open', state.chat.open);
+  drawer.setAttribute('aria-hidden', String(!state.chat.open));
+  messages.innerHTML = state.chat.messages.map((message) => `
+    <article class="chat-message chat-message--${message.role}">
+      <p>${escapeHtml(message.text)}</p>
+      ${message.meta ? `<span>${escapeHtml(message.meta)}</span>` : ''}
+      ${message.sourceUrl ? `<a href="${escapeHtml(message.sourceUrl)}" target="_blank" rel="noreferrer">Open source query</a>` : ''}
+    </article>
+  `).join('');
+
+  submit.disabled = state.chat.status === 'loading';
+  input.disabled = state.chat.status === 'loading';
+  if (state.chat.open) {
+    queueMicrotask(() => {
+      input.focus();
+      messages.scrollTop = messages.scrollHeight;
+    });
+  }
+}
+
+function openChat() {
+  state.chat.open = true;
+  renderChat();
+}
+
+function closeChat() {
+  state.chat.open = false;
+  renderChat();
+}
+
+function pushChatMessage(role, text, extras = {}) {
+  state.chat.messages = [...state.chat.messages, { role, text, ...extras }];
+  renderChat();
+}
+
 function shell() {
   app.innerHTML = `
     <header class="hero">
@@ -176,6 +288,7 @@ function shell() {
         <p class="eyebrow">Modules</p>
         <a data-route-link="dashboard" href="#/dashboard">Dashboard</a>
         <a data-route-link="enforcement" href="#/enforcement-data">Enforcement Data graph</a>
+        <button class="nav-action" id="chat-launcher" type="button">Drug chat</button>
         <a data-route-link="about" href="#/about">About</a>
       </aside>
 
@@ -271,6 +384,30 @@ function shell() {
       </div>
     </main>
 
+    <div class="chat-launcher">
+      <button id="chat-fab" type="button">Ask about a drug</button>
+    </div>
+
+    <div class="chat-drawer" id="drug-chat" aria-hidden="true">
+      <div class="chat-drawer__backdrop" data-chat-close></div>
+      <section class="chat-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="drug-chat-title">
+        <header class="chat-drawer__header">
+          <div>
+            <p class="eyebrow">Drug chat</p>
+            <h2 id="drug-chat-title">Ask openFDA about a drug</h2>
+            <p>Plain-English descriptions from public drug label data.</p>
+          </div>
+          <button type="button" data-chat-close>Close</button>
+        </header>
+        <div class="chat-drawer__messages" id="chat-messages"></div>
+        <form class="chat-drawer__composer" id="chat-form">
+          <input id="chat-input" type="text" placeholder="Ask about ibuprofen, metformin…" autocomplete="off" />
+          <button id="chat-submit" type="submit">Ask</button>
+        </form>
+        <p class="chat-drawer__tips">Try “What is ibuprofen?” or “Describe metformin”.</p>
+      </section>
+    </div>
+
     <footer>brought to you by Neuromancer</footer>
   `;
 
@@ -286,7 +423,35 @@ function shell() {
     runSearch();
   });
 
+  document.querySelector('#chat-launcher').addEventListener('click', openChat);
+  document.querySelector('#chat-fab').addEventListener('click', openChat);
+  document.querySelectorAll('[data-chat-close]').forEach((button) => {
+    button.addEventListener('click', closeChat);
+  });
+  document.querySelector('#chat-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = document.querySelector('#chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    pushChatMessage('user', text);
+    state.chat.status = 'loading';
+    pushChatMessage('assistant', 'Looking that up in openFDA…');
+    try {
+      const reply = await fetchDrugChatReply(text);
+      state.chat.messages = state.chat.messages.slice(0, -1);
+      pushChatMessage('assistant', reply.text, { meta: reply.meta, sourceUrl: reply.sourceUrl });
+    } catch (error) {
+      state.chat.messages = state.chat.messages.slice(0, -1);
+      pushChatMessage('assistant', error.message || 'I could not look that up just now.');
+    } finally {
+      state.chat.status = 'idle';
+      renderChat();
+    }
+  });
+
   applyTheme();
+  renderChat();
 
   window.addEventListener('hashchange', renderRoute);
 }
