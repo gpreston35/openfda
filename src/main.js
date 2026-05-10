@@ -213,14 +213,13 @@ function summarizeDrugLabel(record, term) {
   const interactions = firstPresent(record, ['drug_interactions'], '');
   const updated = formatDate(firstPresent(record, ['effective_time'], ''));
   const sourceUrl = buildDrugLabelSearchUrls(term)[0];
-  const parts = [purpose];
-  if (warnings) parts.push(`Warnings: ${warnings}`);
-  if (interactions) parts.push(`Interactions: ${interactions}`);
 
   return {
     title: generic ? `${brand} (${generic})` : brand,
-    text: `${parts.join(' ')}\n\nSource: openFDA drug label data. Informational only, not medical advice.`,
-    meta: `Updated ${updated}`,
+    summary: purpose,
+    warnings,
+    interactions,
+    updated,
     sourceUrl,
   };
 }
@@ -256,11 +255,19 @@ function renderChat() {
   drawer.classList.toggle('is-open', state.chat.open);
   drawer.setAttribute('aria-hidden', String(!state.chat.open));
   messages.innerHTML = state.chat.messages.map((message) => `
-    <article class="chat-message chat-message--${message.role}">
-      <p>${escapeHtml(message.text)}</p>
-      ${message.meta ? `<span>${escapeHtml(message.meta)}</span>` : ''}
-      ${message.sourceUrl ? `<a href="${escapeHtml(message.sourceUrl)}" target="_blank" rel="noreferrer">Open source query</a>` : ''}
-    </article>
+    ${message.kind === 'drug-result'
+      ? `<article class="chat-message chat-message--assistant chat-message--result">
+          <p class="chat-message__eyebrow">Drug label result</p>
+          <h3>${escapeHtml(message.result.title)}</h3>
+          <p>${escapeHtml(message.result.summary)}</p>
+          ${message.result.warnings ? `<div><strong>Warnings</strong><p>${escapeHtml(message.result.warnings)}</p></div>` : ''}
+          ${message.result.interactions ? `<div><strong>Interactions</strong><p>${escapeHtml(message.result.interactions)}</p></div>` : ''}
+          <span>Updated ${escapeHtml(message.result.updated)}</span>
+          <a href="${escapeHtml(message.result.sourceUrl)}" target="_blank" rel="noreferrer">View the openFDA query</a>
+        </article>`
+      : `<article class="chat-message chat-message--${message.role}">
+          <p>${escapeHtml(message.text)}</p>
+        </article>`}
   `).join('');
 
   submit.disabled = state.chat.status === 'loading';
@@ -464,7 +471,7 @@ function shell() {
     try {
       const reply = await fetchDrugChatReply(text);
       state.chat.messages = state.chat.messages.slice(0, -1);
-      pushChatMessage('assistant', reply.text, { meta: reply.meta, sourceUrl: reply.sourceUrl });
+      pushChatMessage('assistant', '', { kind: 'drug-result', result: reply });
     } catch (error) {
       state.chat.messages = state.chat.messages.slice(0, -1);
       pushChatMessage('assistant', error.message || 'I could not look that up just now.');
