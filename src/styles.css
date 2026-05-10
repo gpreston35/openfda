@@ -22,8 +22,6 @@ button, input, select { font: inherit; }
 .hero__panel strong { color: #fff; }
 .theme-control { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 4px; }
 .theme-control span { color: #c7d2fe; font-size: .78rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.theme-control button { border: 1px solid rgba(196, 181, 253, .55); border-radius: 999px; background: #c4b5fd; color: #080711; cursor: pointer; font-weight: 800; padding: 9px 12px; }
-.theme-control button:hover, .theme-control button:focus { background: #fff; }
 
 main { display: grid; gap: 44px; padding-bottom: 42px; }
 .app-layout { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
@@ -107,8 +105,6 @@ dd { margin: 4px 0 0; color: #f8fafc; }
 .disclaimer h2 { margin-top: 0; }
 .disclaimer p { color: #c7d2fe; line-height: 1.65; }
 footer { color: #8ea0c5; padding: 18px 0 36px; text-align: center; }
-
-body[data-theme="night"] { color-scheme: dark; }
 
 body[data-theme="day"] {
   color-scheme: light;
