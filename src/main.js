@@ -36,8 +36,8 @@ const categories = {
 const THEME_KEY = 'openfda-theme';
 
 function getInitialTheme() {
-  localStorage.setItem(THEME_KEY, 'day');
-  return 'day';
+  const saved = localStorage.getItem(THEME_KEY);
+  return saved === 'night' || saved === 'day' ? saved : 'day';
 }
 
 const state = {
@@ -65,7 +65,14 @@ const app = document.querySelector('#app');
 
 function applyTheme() {
   document.body.dataset.theme = state.theme;
-  localStorage.setItem(THEME_KEY, 'day');
+  localStorage.setItem(THEME_KEY, state.theme);
+  const button = document.querySelector('#theme-toggle');
+  if (button) {
+    const next = state.theme === 'day' ? 'Night' : 'Day';
+    button.textContent = `${next} mode`;
+    button.setAttribute('aria-label', `Switch to ${next.toLowerCase()} mode`);
+    button.setAttribute('aria-pressed', String(state.theme === 'night'));
+  }
 }
 
 applyTheme();
@@ -306,7 +313,7 @@ function shell() {
       <div class="hero__panel" aria-label="openFDA API constraints">
         <div class="theme-control">
           <span>Theme</span>
-          <strong>Day mode</strong>
+          <button id="theme-toggle" type="button">Night mode</button>
         </div>
         <strong>Unauthenticated openFDA limits</strong>
         <span>240 requests/minute/IP</span>
@@ -452,6 +459,11 @@ function shell() {
   document.querySelector('#category-select').addEventListener('change', (event) => {
     state.activeCategory = event.target.value;
     runSearch();
+  });
+
+  document.querySelector('#theme-toggle').addEventListener('click', () => {
+    state.theme = state.theme === 'day' ? 'night' : 'day';
+    applyTheme();
   });
 
   document.querySelector('#chat-launcher').addEventListener('click', openChat);
